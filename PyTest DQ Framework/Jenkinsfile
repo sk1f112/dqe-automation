@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        POSTGRES_SECRET = credentials('POSTGRES_SECRET')
-    }
-
     stages {
         stage('Install dependencies') {
             steps {
@@ -16,34 +12,44 @@ pipeline {
 
         stage('Run Parquet DQ tests') {
             steps {
-                dir('PyTest DQ Framework') {
-                    sh '''
-                        python -m pytest tests -m "parquet_data" \
-                            --db_host="postgres" \
-                            --db_port="5432" \
-                            --db_name="mydatabase" \
-                            --db_user="$POSTGRES_SECRET_USR" \
-                            --db_password="$POSTGRES_SECRET_PSW" \
-                            --html=html_report/report.html
-                    '''
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'POSTGRES_SECRET',
+                        usernameVariable: 'POSTGRES_USER',
+                        passwordVariable: 'POSTGRES_PASSWORD'
+                    )
+                ]) {
+                    dir('PyTest DQ Framework') {
+                        sh '''
+                            mkdir -p html_report
+                            python -m pytest tests -m "parquet_data" \
+                                --db_host="postgres" \
+                                --db_port="5432" \
+                                --db_name="mydatabase" \
+                                --db_user="$POSTGRES_USER" \
+                                --db_password="$POSTGRES_PASSWORD" \
+                                --html=html_report/report.html
+                        '''
+                    }
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            archiveArtifacts(
-                artifacts: 'PyTest DQ Framework/html_report/**',
-                allowEmptyArchive: true
-            )
-            publishHTML(target: [
-                allowMissing: false,
-                keepAll: true,
-                reportDir: 'PyTest DQ Framework/html_report',
-                reportFiles: 'report.html',
-                reportName: 'HTML Test Report'
-            ])
+            post {
+                always {
+                    dir('PyTest DQ Framework') {
+                        archiveArtifacts(
+                            artifacts: 'html_report/**',
+                            allowEmptyArchive: true
+                        )
+                        publishHTML(target: [
+                            allowMissing: true,
+                            keepAll: true,
+                            reportDir: 'html_report',
+                            reportFiles: 'report.html',
+                            reportName: 'HTML Test Report'
+                        ])
+                    }
+                }
+            }
         }
     }
 }
