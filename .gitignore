@@ -1,0 +1,3 @@
+__pycache__/
+*.py[cod]
+/PyTest DQ Framework/tests/dq\ checks/parquet_files/**/*.parquet
