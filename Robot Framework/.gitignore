@@ -1,1 +1,3 @@
 results
+Robot Framework/parquet_data/
+**/*.parquet
